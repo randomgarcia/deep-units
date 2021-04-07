@@ -18,7 +18,13 @@ class TensorDict:
         self.CurrentKey = None
 
     def set_current_key(self,key=-1):
+        if isinstance(key,tf.Tensor):
+            key = key.ref()
         self.CurrentKey = key
+
+        if key not in self.NestedDict.keys():
+            self.NestedDict[key] = {}
+
         return self
 
     def __getitem__(self,args):
@@ -28,16 +34,27 @@ class TensorDict:
 
         if len(args)==1:
             key = self.CurrentKey if self.CurrentKey is not None else -1
-
+            if isinstance(key,tf.Tensor):
+                key = key.ref()
             # need to work out which level we're accessing
-            if (args[0] in self.NestedDict.keys()) or (type(args[0]) is int):
-                return self.NestedDict[args[0]]
+            if isinstance(args[0],tf.Tensor):
+                arg0 = args[0].ref()
+            else:
+                arg0 = args[0]
+
+            if (arg0 in self.NestedDict.keys()) or (type(arg0) is int):
+                return self.NestedDict[arg0]
             elif args[0] in self.NestedDict[key].keys():
                 return self.NestedDict[key][args[0]]
             else:
                 raise ValueError
         else:
-            return self.NestedDict[args[0]][args[1]]
+            if isinstance(args[0],tf.Tensor):
+                arg0 = args[0].ref()
+            else:
+                arg0 = args[0]
+
+            return self.NestedDict[arg0][args[1]]
 
     def __setitem__(self,args,val):
         if type(args) not in [list,tuple]:
@@ -106,6 +123,7 @@ class ConvUnit(DeepUnit):
         strides=1,
         activations='relu',
         batch_norm=False,
+        padding='same',
     ):
 
         if type(features) not in [list,tuple,np.ndarray]:
@@ -120,11 +138,13 @@ class ConvUnit(DeepUnit):
             strides = [strides]*len(features)
         if type(activations) not in [list,tuple,np.ndarray]:
             activations = [activations]*len(features)
+        if type(padding) not in [list,tuple,np.ndarray]:
+            padding = [padding]*len(features)
 
 
         convlayers = [
-            Conv2D(ff,kernel_size=kk,strides=ss)
-            for ff,kk,ss in zip(features,kernel_sizes,strides)
+            Conv2D(ff,kernel_size=kk,strides=ss,padding=pp)
+            for ff,kk,ss,pp in zip(features,kernel_sizes,strides,padding)
         ]
 
         activations = [
