@@ -1,1 +1,4 @@
-from .base import DeepUnit
+from .base import (
+    DeepUnit,
+    ConvUnit,
+)
