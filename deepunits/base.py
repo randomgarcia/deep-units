@@ -83,7 +83,7 @@ class TensorDict:
 
 
 class DeepUnit:
-    def __init__(self,units,names=None):
+    def __init__(self,units,names=None,preproc=None,postproc=None):
 
         # could use an OrderedDict?
         if type(units) is not dict:
@@ -103,17 +103,41 @@ class DeepUnit:
 
     def __call__(self,x):
         # do some checking here at some point
-        return self.tf_call(x)
-
-    def tf_call(self,x,replace=True):
         self.Tensors.set_current_key(x)
-        # self.Tensors['input'] = x
+        x = self.run_pre_processing(x)
+        
+        y = self.tf_call(x)
+        
+        y = self.run_post_processing(y)
+        
+        return y
+
+    def tf_call(self,x):
+        
         z = x
         for currname in self.Units.keys():
             z = self.Units[currname](z)
             self.Tensors[currname] = z
 
         return z
+    
+    def run_pre_processing(self,x):
+        z = x
+        if self.PreProc is not None:
+            z = self.PreProc(z)
+            self.Tensors['PreProc'] = z
+        
+        return z
+    
+    def run_post_processing(self,x):
+        z = x
+        if self.PostProc is not None:
+            z = self.PostProc(z)
+            self.Tensors['PostProc'] = z
+        
+        return z
+    
+    
 
 class ConvUnit(DeepUnit):
     def __init__(
