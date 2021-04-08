@@ -86,7 +86,7 @@ class DeepUnit:
     def __init__(self,units,names=None,preproc=None,postproc=None):
 
         # could use an OrderedDict?
-        if type(units) is not dict:
+        if not isinstance(units, OrderedDict):
             if type(units) not in [list,tuple]:
                 units = [units]
 
@@ -97,6 +97,8 @@ class DeepUnit:
 
             for ii in range(len(units)):
                 self.Units[names[ii]] = units[ii]
+        else:
+            self.Units = units
 
         self.Tensors = TensorDict()
 
@@ -139,6 +141,30 @@ class DeepUnit:
     
     
 
+def validate_layer(layer):
+    if isinstance(layer,int) or isinstance(layer,float):
+        layer = Conv2D(layer,activation='relu')
+    
+    return layer
+            
+
+# this won't work! What about when we need to override the call method?
+# class InnerUnit(DeepUnit):
+#     def __init__(self, units, names=None, initial_layer=None, final_layer=None):
+#         # do some checking of the initial and final layer types here
+#         super().__init__(units,names)
+        
+#         if initial_layer is not None:
+#             initial_layer = validate_layer(initial_layer)
+#             self.Units['InitialLayer'] = initial_layer
+#             self.Units.move_to_end('InitialLayer',last=False)
+            
+#         if final_layer is not None:
+#             final_layer = validate_layer(final_layer)  
+#             self.Units['FinalLayer'] = final_layer
+            
+        
+        
 class ConvUnit(DeepUnit):
     def __init__(
         self,
