@@ -140,29 +140,20 @@ class DeepUnit:
         return z
     
     
-
-def validate_layer(layer):
-    if isinstance(layer,int) or isinstance(layer,float):
-        layer = Conv2D(layer,activation='relu')
-    
-    return layer
-            
-
-# this won't work! What about when we need to override the call method?
-# class InnerUnit(DeepUnit):
-#     def __init__(self, units, names=None, initial_layer=None, final_layer=None):
-#         # do some checking of the initial and final layer types here
-#         super().__init__(units,names)
+    @classmethod
+    def validate_layer(cls,layer):
+        if isinstance(layer,int) or isinstance(layer,float):
+            layer = Conv2D(layer,activation='relu')
         
-#         if initial_layer is not None:
-#             initial_layer = validate_layer(initial_layer)
-#             self.Units['InitialLayer'] = initial_layer
-#             self.Units.move_to_end('InitialLayer',last=False)
-            
-#         if final_layer is not None:
-#             final_layer = validate_layer(final_layer)  
-#             self.Units['FinalLayer'] = final_layer
-            
+        elif isinstance(layer,str):
+            factor = int(layer)
+            if factor<=0:
+                layer = GlobalAveragePooling2D()
+            else:
+                layer = MaxPooling2D(factor)
+                
+        return layer
+        
         
         
 class ConvUnit(DeepUnit):
@@ -174,6 +165,8 @@ class ConvUnit(DeepUnit):
         activations='relu',
         batch_norm=False,
         padding='same',
+        preproc=None,
+        postproc=None,
     ):
 
         if type(features) not in [list,tuple,np.ndarray]:
@@ -212,4 +205,8 @@ class ConvUnit(DeepUnit):
                 names.append('Activation_{0}'.format(ii))
                 units.append(activations[ii])
 
-        super().__init__(units,names)
+        super().__init__(units,names,preproc=preproc,postproc=postproc)
+
+class FCUnit(DeepUnit):
+    def __init__(self,dense_features,activations='relu',last_activation='softmax'):
+        pass
