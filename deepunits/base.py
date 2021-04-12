@@ -5,9 +5,43 @@ from tensorflow.keras.layers import (
     Dense,
     Conv2D,
     Activation,
+    MaxPooling2D,
+    GlobalAveragePooling2D,
 )
 
 from collections import OrderedDict
+
+def to_ordered_dict(units,names=None):
+    """
+    Convert the list of units to an ordereddict
+    """
+    if isinstance(units,OrderedDict):
+        return units
+    
+    if type(units) not in [list,tuple]:
+        units = [units]
+
+    unitdict = OrderedDict()
+
+    if names is None:
+        names = ['Unit{0}'.format(ii) for ii in range(len(units))]
+
+    for ii in range(len(units)):
+        unitdict[names[ii]] = units[ii]
+        
+    return unitdict
+
+def to_listnames(unitdict,names=None):
+    if isinstance(unitdict,OrderedDict):
+        names,units = zip(*list(unitdict.items()))
+    else:
+        if type(unitdict) not in [list,tuple]:
+            unitdict = [unitdict]
+        units = unitdict
+        if names is None:
+            names = ['Unit{0}'.format(ii) for ii in range(len(units))]
+    
+    return units,names
 
 class TensorDict:
     """
@@ -86,26 +120,25 @@ class DeepUnit:
     def __init__(self,units,names=None,preproc=None,postproc=None):
 
         # could use an OrderedDict?
-        if not isinstance(units, OrderedDict):
-            if type(units) not in [list,tuple]:
-                units = [units]
-
-            self.Units = OrderedDict()
-
-            if names is None:
-                names = ['Unit{0}'.format(ii) for ii in range(len(units))]
-
-            for ii in range(len(units)):
-                self.Units[names[ii]] = units[ii]
-        else:
-            self.Units = units
+        self.Units = to_ordered_dict(units,names)
 
         self.Tensors = TensorDict()
+        
+        self.set_pre_post_proc(preproc,postproc)
+    
+    def set_pre_post_proc(self,preproc=None,postproc=None):
+        self.PreProc = self.validate_layer(preproc)
+        self.PostProc = self.validate_layer(postproc)
 
 
     def __call__(self,x):
         # do some checking here at some point
-        self.Tensors.set_current_key(x)
+        if isinstance(self.Tensors,TensorDict):
+            self.Tensors.set_current_key(x)
+        else:
+            for kk in self.Tensors.keys():
+                self.Tensors[kk].set_current_key(x)
+        
         x = self.run_pre_processing(x)
         
         y = self.tf_call(x)
@@ -143,7 +176,7 @@ class DeepUnit:
     @classmethod
     def validate_layer(cls,layer):
         if isinstance(layer,int) or isinstance(layer,float):
-            layer = Conv2D(layer,activation='relu')
+            layer = Conv2D(layer,kernel_size=3,activation='relu',padding='same')
         
         elif isinstance(layer,str):
             factor = int(layer)
