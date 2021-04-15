@@ -15,7 +15,7 @@ class DenseNetUnit(DeepUnit):
     Class containing the basic dense net unit architecture, ie concatenating after each
     unit
     """
-    def __init__(self,units,names=None,preproc=None,postproc=None):
+    def __init__(self,units,names=None,preproc=None,postproc=None,final_layer=None):
         
         # don't need the structure to follow exactly at the moment
         # also need the concatenation parts, so break back into list
@@ -34,6 +34,11 @@ class DenseNetUnit(DeepUnit):
         self.Tensors['Features'] = TensorDict()
         self.Tensors['Concats'] = TensorDict()
         
+        
+        if final_layer is not None:
+            self.Units['FinalLayer'] = self.validate_layer(final_layer)
+            self.Tensors['Other'] = TensorDict()
+            
         self.set_pre_post_proc(preproc,postproc)
         
     def tf_call(self,x):
@@ -45,6 +50,10 @@ class DenseNetUnit(DeepUnit):
             
             z = self.Units['Concats'][currname]([z,z1])
             self.Tensors['Concats'][currname] = z
+        
+        if 'FinalLayer' in self.Units.keys():
+            z = self.Units['FinalLayer'](z)
+            self.Tensors['Other']['FinalLayer'] = z
 
         return z
     
@@ -59,6 +68,7 @@ class StandardDenseNetUnit(DenseNetUnit):
         self,
         growth_rate,
         repeats,
+        output_features=None,
         bottleneck=None,
         preproc=None,
         postproc=None,
@@ -69,12 +79,16 @@ class StandardDenseNetUnit(DenseNetUnit):
             growth_rate = repeats*[growth_rate]
         
         growth_rate = [int(x) for x in growth_rate]
-        repeats = int(repeats)
+        repeats = len(growth_rate)
         
         if bottleneck is None:
             bottleneck = [4*x for x in growth_rate]
         elif type(bottleneck) not in [list,tuple]:
             bottleneck = repeats*[bottleneck]
+        
+        if (output_features is not None) and (output_features<0):
+            output_features = int(0.5 * sum(growth_rate))
+        
         
         units = []
         for rr in range(repeats):
@@ -92,5 +106,5 @@ class StandardDenseNetUnit(DenseNetUnit):
             units.append(unit0)
         
         # sort out the names later
-        super().__init__(units,preproc=preproc,postproc=postproc)
+        super().__init__(units,preproc=preproc,postproc=postproc,final_layer=output_features)
         

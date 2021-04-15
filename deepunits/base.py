@@ -242,4 +242,39 @@ class ConvUnit(DeepUnit):
 
 class FCUnit(DeepUnit):
     def __init__(self,dense_features,activations='relu',last_activation='softmax'):
-        pass
+        
+        if type(dense_features) not in [list,tuple,np.ndarray]:
+            dense_features = [dense_features]
+
+        if type(activations) not in [list,tuple,np.ndarray]:
+            activations = [activations]*len(dense_features)
+        
+        if len(activations)==len(dense_features):
+            activations = activations[:-1]
+        
+        activations = activations + [last_activation]
+        
+        
+        denselayers = [
+            Dense(ff)
+            for ff in dense_features
+        ]
+
+        activations = [
+            Activation(aa) if type(aa) is str else aa
+            for aa in activations
+        ]
+
+        names = []
+        units = []
+        for ii in range(len(dense_features)):
+            names.append('Dense_{0}'.format(ii))
+            units.append(denselayers[ii])
+
+            if activations[ii] is not None:
+                names.append('Activation_{0}'.format(ii))
+                units.append(activations[ii])
+
+        super().__init__(units,names,preproc=None,postproc=None)
+
+
