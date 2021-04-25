@@ -7,6 +7,7 @@ from tensorflow.keras.layers import (
     Activation,
     MaxPooling2D,
     GlobalAveragePooling2D,
+    Add,
 )
 
 from collections import OrderedDict
@@ -187,7 +188,15 @@ class DeepUnit:
                 
         return layer
         
+
+class NullUnit(DeepUnit):
+    def __init__(self):
+        super().__init__([])
+    
+    def tfcall(self,x):
+        self.Tensors['x'] = x
         
+        return x
         
 class ConvUnit(DeepUnit):
     def __init__(
@@ -278,3 +287,17 @@ class FCUnit(DeepUnit):
         super().__init__(units,names,preproc=None,postproc=None)
 
 
+class ResidualUnit(DeepUnit):
+    def __init__(self,main_branch,residual_branch=None):
+        
+        if residual_branch is None:
+            residual_branch = NullUnit()
+        
+        units = OrderedDict()
+        units['main_branch'] = main_branch
+        units['residual_branch'] = residual_branch
+        
+        units['merge'] = Add()
+    
+    def tfcall(self,x):
+        pass
