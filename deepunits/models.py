@@ -65,4 +65,15 @@ class DeepModel(DeepUnit):
         fc_kws = {'dense_features':fcfeat}
         
         return cls(StandardDenseNetUnit,base_kws=kws,fc_kws=fc_kws,preproc=preproc,**kwargs)
-        
+
+class ResidualModel(DeepModel):
+    """
+    Create a model with residual connections between the downscaling operations
+    """
+    def __init__(self):
+        """
+        Need to think about how the residual connection will be handled, as it's
+        likely to go in partway into the next block
+        """
+        pass
+    

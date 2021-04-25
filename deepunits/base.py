@@ -298,6 +298,20 @@ class ResidualUnit(DeepUnit):
         units['residual_branch'] = residual_branch
         
         units['merge'] = Add()
+        
+        super().__init__(units)
     
-    def tfcall(self,x):
-        pass
+    def tf_call(self,x):
+        z1 = self.Units['main_branch'](x)
+        self.Tensors['main_branch'] = z1
+        
+        z2 = self.Units['residual_branch'](x)
+        self.Tensors['residual_branch'] = z2
+        
+        y = self.Units['merge']([z1,z2])
+        self.Tensors['merge'] = y
+        
+        return y
+        
+        
+        
