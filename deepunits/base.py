@@ -176,6 +176,10 @@ class DeepUnit:
     
     @classmethod
     def validate_layer(cls,layer):
+        """
+        TODO - allow a list to specify a sequence of units
+        """
+        
         if isinstance(layer,int) or isinstance(layer,float):
             layer = Conv2D(layer,kernel_size=3,activation='relu',padding='same')
         

@@ -50,10 +50,22 @@ class DeepModel(DeepUnit):
         super().__init__(units,names=None,preproc=preproc,postproc=postproc)
     
     @classmethod
-    def dense_net(cls,preproc=24,growth_rate=[4,8,12],repeats=[2,4,6],output_features=[12,24,48],fcfeat=[36,10],**kwargs):
+    def dense_net(
+        cls,
+        preproc=24,
+        growth_rate=[4,8,12],
+        repeats=[2,4,6],
+        output_features=[12,24,48],
+        fcfeat=[36,10],
+        fc_kws=None,
+        **kwargs
+    ):
         """
         Convert to kws for the constructor
         """
+        if fc_kws is None:
+            fc_kws = {}
+        
         kws = [
             {
                 'growth_rate':growth_rate[ii],
@@ -63,9 +75,36 @@ class DeepModel(DeepUnit):
             for ii in range(len(growth_rate))
         ]
         
-        fc_kws = {'dense_features':fcfeat}
+        fc_kws = {**fc_kws, 'dense_features':fcfeat}
         
         return cls(StandardDenseNetUnit,base_kws=kws,fc_kws=fc_kws,preproc=preproc,**kwargs)
+        
+    @classmethod
+    def xception(
+        cls,
+        preproc=24,
+        features=[24,36,48],
+        residual=[True,True,True],
+        fc_feat=[36,10],
+        fc_kws=None,
+    ):
+        if fc_kws is None:
+            fc_kws = {}
+        
+        kws = [
+            {
+                'features':features[ii],
+                'residual':residual[ii],
+                'num_units':num_units[ii],
+                'maxpool_at_end':maxpool_at_end[ii],
+            }
+            for ii in range(len(growth_rate))
+        ]
+        
+        fc_kws = {**fc_kws, 'dense_features':fcfeat}
+        
+        return cls(create_xception_units,base_kws=kws,fc_kws=fc_kws,preproc=preproc,**kwargs)
+        
 
 class ResidualModel(DeepModel):
     """
