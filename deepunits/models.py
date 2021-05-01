@@ -1,5 +1,6 @@
 from .base import DeepUnit, ConvUnit, FCUnit
 from .densenet import StandardDenseNetUnit
+from .xception import create_xception_units
 from collections import OrderedDict
 
 
