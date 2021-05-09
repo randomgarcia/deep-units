@@ -83,14 +83,23 @@ class DeepModel(DeepUnit):
     def xception(
         cls,
         preproc=24,
-        features=[24,36,48],
-        residual=[True,True,True],
+        features=[24,48,48,72],
+        residual=[True,True,True,True],
+        num_units=[1,1,4,1],
+        maxpool_at_end=[True,True,False,True],
         fc_feat=[36,10],
         fc_kws=None,
+        **kwargs,
     ):
         if fc_kws is None:
             fc_kws = {}
         
+        if type(num_units) not in [list,tuple]:
+            num_units = len(features)*[num_units]
+        if type(maxpool_at_end) not in [list,tuple]:
+            maxpool_at_end = len(features)*[maxpool_at_end]
+        
+
         kws = [
             {
                 'features':features[ii],
@@ -98,10 +107,10 @@ class DeepModel(DeepUnit):
                 'num_units':num_units[ii],
                 'maxpool_at_end':maxpool_at_end[ii],
             }
-            for ii in range(len(growth_rate))
+            for ii in range(len(features))
         ]
         
-        fc_kws = {**fc_kws, 'dense_features':fcfeat}
+        fc_kws = {**fc_kws, 'dense_features':fc_feat}
         
         return cls(create_xception_units,base_kws=kws,fc_kws=fc_kws,preproc=preproc,**kwargs)
         

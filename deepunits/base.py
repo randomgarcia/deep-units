@@ -53,7 +53,7 @@ class TensorDict:
         self.CurrentKey = None
 
     def set_current_key(self,key=-1):
-        if isinstance(key,tf.Tensor):
+        if isinstance(key,tf.Tensor) or tf.keras.backend.is_keras_tensor(key):
             key = key.ref()
         self.CurrentKey = key
 
