@@ -53,7 +53,7 @@ class TensorDict:
         self.CurrentKey = None
 
     def set_current_key(self,key=-1):
-        if isinstance(key,tf.Tensor) or tf.keras.backend.is_keras_tensor(key):
+        if isinstance(key,tf.Tensor):
             key = key.ref()
         self.CurrentKey = key
 
@@ -184,11 +184,35 @@ class DeepUnit:
             layer = Conv2D(layer,kernel_size=3,activation='relu',padding='same')
         
         elif isinstance(layer,str):
-            factor = int(layer)
-            if factor<=0:
-                layer = GlobalAveragePooling2D()
+            # check for particular sequence to specify maxpool, conv, avpool etc
+            if layer[:1].isalpha():
+                # try to use a regex to parse?
+                codes = layer.split('_')
+                for code0 in codes:
+                    layer_type = code0[0]
+                    args = [int(x) if x.isdigit() else x for x in code0[1:].split('/')]
+                    
+                    kwlist = ['filters','kernel_size','stride','activation']
+                    kwdef = [24,3,1,'relu']
+                    fixkw = {}
+                    ltype = Conv2D
+                    
+                    usev = kwdef.copy()
+                    usev[:len(args)] = [x if x!='' else y for x,y in zip(args,usev)]
+                    
+                    kws = {**fixkw, **{k:v for k,v in zip(kwlist,usev)}}
+                    if 'activation' in kws.keys():
+                        kws['activation'] = activations[kws['activation']]()
+                    
+                    layer0 = ltype(**kws)
+                    
+                    
             else:
-                layer = MaxPooling2D(factor)
+                factor = int(layer)
+                if factor<=0:
+                    layer = GlobalAveragePooling2D()
+                else:
+                    layer = MaxPooling2D(factor)
                 
         return layer
         

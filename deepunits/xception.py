@@ -7,7 +7,6 @@ from tensorflow.keras.layers import (
     Conv2D,
     BatchNormalization,
     Activation,
-    MaxPooling2D,
 )
 
 # DepthwiseConv2D is the stacked filter part only
@@ -26,6 +25,14 @@ class XceptionUnit(DeepUnit):
         maxpool_at_end=True,
     ):
         units = OrderedDict()
+        
+        if isinstance(maxpool_at_end,bool) and maxpool_at_end:
+            maxpool_at_end = 'm2'
+        
+        if inter_activation:
+            use_act = activation
+        else:
+            use_act = None
         
         if type(features) not in [list,tuple]:
             features = [features]
@@ -50,9 +57,9 @@ class XceptionUnit(DeepUnit):
         
         if activation_at_end:
             if type(activation) is str:
-                units['activation{0}'.format(len(features)+1)] = Activation(activation)
-            else:
-                units['activation{0}'.format(len(features)+1)] = activation
+                    units['activation{0}'.format(len(features)+1)] = Activation(activation)
+                else:
+                    units['activation{0}'.format(len(features)+1)] = activation
         
         if maxpool_at_end:
             units['maxpool'] = MaxPooling2D((3,3),strides=(2,2),padding='same')
@@ -102,6 +109,7 @@ class XceptionResidualUnit(ResidualUnit):
         activation_at_end=False,
         maxpool_at_end=True,
     ):
+        
         main_branch = XceptionUnit(
             features,
             depth_multiplier=depth_multiplier,
@@ -165,7 +173,7 @@ def create_xception_units(
     activation_at_start=True,
     activation_at_end=False,
     maxpool_at_end=False,
-    postproc=None,
+    maxpool_after_first=True,
 ):
     """
     This creates one scale of an xception model (ie, no intermediate downscaling)
@@ -174,9 +182,12 @@ def create_xception_units(
     or num_units>0 and maxpool_at_end=False
     """
     
-    if postproc is not None:
-        print("Warning - haven't linked postproc to maxpool_at_end yet")
-
+    if isinstance(maxpool_at_end,bool) and maxpool_at_end:
+        maxpool_at_end = 'm2'
+    if isinstance(maxpool_after_first,bool) and maxpool_after_first:
+        maxpool_after_first = 'm2'
+    
+    
     units = OrderedDict()
     
     if residual:
@@ -184,7 +195,7 @@ def create_xception_units(
     else:
         constructor = XceptionUnit
         
-    for ii in range(num_units):
+    for ii in num_units:
         units[f'Xc{ii}'] = constructor(
             repeats*[features],
             depth_multiplier=1,
