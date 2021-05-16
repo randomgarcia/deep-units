@@ -23,16 +23,13 @@ class XceptionUnit(DeepUnit):
         activation_at_start=True,
         activation_at_end=False,
         maxpool_at_end=True,
+        postproc=None,
+        force_residual_conv=False,
     ):
         units = OrderedDict()
         
         if isinstance(maxpool_at_end,bool) and maxpool_at_end:
             maxpool_at_end = 'm2'
-        
-        if inter_activation:
-            use_act = activation
-        else:
-            use_act = None
         
         if type(features) not in [list,tuple]:
             features = [features]
@@ -40,9 +37,10 @@ class XceptionUnit(DeepUnit):
         for ii in range(len(features)):
             if (ii>0) or activation_at_start:
                 if type(activation) is str:
-                    units[f'activation{ii}'] = Activation(activation)
+                    activ = self.validate_activation(activation)
+                    units[f'activation{ii}'] = activ
                 else:
-                    units[f'Activation{ii}'] = activation
+                    units[f'activation{ii}'] = activation
 
             units[f'sep_conv{ii}'] = SeparableConv2D(
                 features[ii],
@@ -57,14 +55,15 @@ class XceptionUnit(DeepUnit):
         
         if activation_at_end:
             if type(activation) is str:
-                    units['activation{0}'.format(len(features)+1)] = Activation(activation)
-                else:
-                    units['activation{0}'.format(len(features)+1)] = activation
+                units['activation{0}'.format(len(features)+1)] = Activation(activation)
+            else:
+                units['activation{0}'.format(len(features)+1)] = activation
         
         if maxpool_at_end:
-            units['maxpool'] = MaxPooling2D((3,3),strides=(2,2),padding='same')
+            postproc = 'm2'
+        
             
-        super().__init__(units)
+        super().__init__(units,postproc=postproc)
     
     @classmethod
     def create(
@@ -77,6 +76,7 @@ class XceptionUnit(DeepUnit):
         activation_at_start=True,
         activation_at_end=False,
         maxpool_at_end=True,
+        postproc=None,
     ):
         """
         All scalar alternative constructor for use in model creation
@@ -89,6 +89,7 @@ class XceptionUnit(DeepUnit):
             activation_at_start=activation_at_start,
             activation_at_end=activation_at_end,
             maxpool_at_end=maxpool_at_end,
+            postproc=postproc,
         )
         
 
@@ -108,6 +109,8 @@ class XceptionResidualUnit(ResidualUnit):
         activation_at_start=True,
         activation_at_end=False,
         maxpool_at_end=True,
+        postproc=None,
+        force_residual_conv=False,
     ):
         
         main_branch = XceptionUnit(
@@ -118,14 +121,20 @@ class XceptionResidualUnit(ResidualUnit):
             activation_at_start=activation_at_start,
             activation_at_end=activation_at_end,
             maxpool_at_end=maxpool_at_end,
+            postproc=postproc,
         )
         
-        if maxpool_at_end:
+        if maxpool_at_end or postproc or force_residual_conv:
+            if maxpool_at_end or postproc:
+                strides = (2,2)
+            else:
+                strides = (1,1)
+            
             resunits = OrderedDict()
             resunits['feature'] = Conv2D(
                 features[-1]*depth_multiplier,
                 (1,1),
-                strides=(2,2),
+                strides=strides,
                 padding='same',
                 use_bias=not batch_norm,
             )
@@ -148,6 +157,7 @@ class XceptionResidualUnit(ResidualUnit):
         activation_at_start=True,
         activation_at_end=False,
         maxpool_at_end=True,
+        postproc=None,
     ):
         """
         All scalar alternative constructor for use in model creation
@@ -160,6 +170,7 @@ class XceptionResidualUnit(ResidualUnit):
             activation_at_start=activation_at_start,
             activation_at_end=activation_at_end,
             maxpool_at_end=maxpool_at_end,
+            postproc=postproc,
         )
         
 def create_xception_units(
@@ -174,6 +185,8 @@ def create_xception_units(
     activation_at_end=False,
     maxpool_at_end=False,
     maxpool_after_first=True,
+    postproc=None,
+    force_residual_conv=False,
 ):
     """
     This creates one scale of an xception model (ie, no intermediate downscaling)
@@ -187,7 +200,7 @@ def create_xception_units(
     if isinstance(maxpool_after_first,bool) and maxpool_after_first:
         maxpool_after_first = 'm2'
     
-    
+
     units = OrderedDict()
     
     if residual:
@@ -195,7 +208,18 @@ def create_xception_units(
     else:
         constructor = XceptionUnit
         
-    for ii in num_units:
+    for ii in range(num_units):
+        if ((ii==0) and (maxpool_after_first)) or ((ii==(num_units-1)) and (maxpool_at_end)):
+            do_maxpool = True
+        else:
+            do_maxpool = False
+
+        # think we can work out whether a res_conv is needed based on whether maxpooling is performed
+        if (ii==0) and force_residual_conv:
+            res_conv = True
+        else:
+            res_conv = False
+
         units[f'Xc{ii}'] = constructor(
             repeats*[features],
             depth_multiplier=1,
@@ -203,7 +227,8 @@ def create_xception_units(
             batch_norm=batch_norm,
             activation_at_start=activation_at_start,
             activation_at_end=activation_at_end,
-            maxpool_at_end=maxpool_at_end,
+            maxpool_at_end=do_maxpool,
+            force_residual_conv=res_conv,
         )
     
     return DeepUnit(units)

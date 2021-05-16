@@ -53,7 +53,8 @@ class TensorDict:
         self.CurrentKey = None
 
     def set_current_key(self,key=-1):
-        if isinstance(key,tf.Tensor):
+        # if isinstance(key,tf.Tensor):
+        if tf.is_tensor(key):
             key = key.ref()
         self.CurrentKey = key
 
@@ -196,7 +197,7 @@ class DeepUnit:
                     if layer_type.lower()=='c':
                         kwlist = ['filters','kernel_size','strides','activation']
                         kwdef = [24,3,1,'relu']
-                        fixkw = {}
+                        fixkw = {'padding':'same'}
                         ltype = Conv2D
                     elif layer_type.lower()=='m':
                         kwlist = ['pool_size','strides']
@@ -219,8 +220,8 @@ class DeepUnit:
                     usev[:len(args)] = [x if x!='' else y for x,y in zip(args,usev)]
                     
                     kws = {**fixkw, **{k:v for k,v in zip(kwlist,usev)}}
-                    if 'activation' in kws.keys():
-                        kws['activation'] = activations[kws['activation']]()
+                    if ('activation' in kws.keys()) and (isinstance(kws['activation'],str)):
+                        kws['activation'] = Activation(kws['activation'])
                     
                     layer0 = ltype(**kws)
                     units.append(layer0)
@@ -234,6 +235,51 @@ class DeepUnit:
                     layer = MaxPooling2D(factor)
                 
         return layer
+    
+    @classmethod
+    def validate_activation(cls,layer):
+        if isinstance(layer,str):
+            if layer in ['relu','softmax','sigmoid','tanh']:
+                return Activation(layer)
+            
+            layer_type = layer[:1]
+            args = [int(x) if x.isdigit() else x for x in layer[1:].split('/')]
+            if layer_type.lower() in ['c','m']:
+                kwlist = []
+                kwdef = []
+                fixkw = {'activation':'softmax'}
+                ltype = Activation
+            elif layer_type.lower()=='r':
+                kwlist = []
+                kwdef = []
+                fixkw = {'activation':'relu'}
+                ltype = Activation
+            elif layer_type.lower()=='t':
+                kwlist = []
+                kwdef = []
+                fixkw = {'activation':'tanh'}
+                ltype = Activation
+            elif layer_type.lower()=='s':
+                kwlist = []
+                kwdef = []
+                fixkw = {'activation':'sigmoid'}
+                ltype = Activation
+            elif layer_type.lower()=='l':
+                kwlist = ['alpha']
+                kwdef = [0.2]
+                fixkw = {}
+                ltype = tf.keras.layers.LeakyReLU
+            
+            
+            usev = kwdef.copy()
+            usev[:len(args)] = [x if x!='' else y for x,y in zip(args,usev)]
+            
+            kws = {**fixkw, **{k:v for k,v in zip(kwlist,usev)}}
+            
+            return ltype(**kws)
+                    
+        else:
+            return layer
         
 
 class NullUnit(DeepUnit):
@@ -295,6 +341,7 @@ class ConvUnit(DeepUnit):
                 units.append(activations[ii])
 
         super().__init__(units,names,preproc=preproc,postproc=postproc)
+
 
 class FCUnit(DeepUnit):
     def __init__(self,dense_features,activations='relu',last_activation='softmax'):
