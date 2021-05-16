@@ -188,14 +188,32 @@ class DeepUnit:
             if layer[:1].isalpha():
                 # try to use a regex to parse?
                 codes = layer.split('_')
+                units = []
                 for code0 in codes:
                     layer_type = code0[0]
                     args = [int(x) if x.isdigit() else x for x in code0[1:].split('/')]
                     
-                    kwlist = ['filters','kernel_size','stride','activation']
-                    kwdef = [24,3,1,'relu']
-                    fixkw = {}
-                    ltype = Conv2D
+                    if layer_type.lower()=='c':
+                        kwlist = ['filters','kernel_size','strides','activation']
+                        kwdef = [24,3,1,'relu']
+                        fixkw = {}
+                        ltype = Conv2D
+                    elif layer_type.lower()=='m':
+                        kwlist = ['pool_size','strides']
+                        kwdef = [2,2]
+                        fixkw = {}
+                        ltype = MaxPooling2D
+                    elif layer_type.lower()=='a':
+                        kwlist = ['pool_size','strides']
+                        kwdef = [2,2]
+                        fixkw = {}
+                        ltype = AveragePooling2D 
+                    elif layer_type.lower()=='g':
+                        ltype = GlobalAveragePooling2D
+                        kwlist = []
+                        kwdef = []
+                        fixkw = {}
+                        
                     
                     usev = kwdef.copy()
                     usev[:len(args)] = [x if x!='' else y for x,y in zip(args,usev)]
@@ -205,7 +223,8 @@ class DeepUnit:
                         kws['activation'] = activations[kws['activation']]()
                     
                     layer0 = ltype(**kws)
-                    
+                    units.append(layer0)
+                layer = DeepUnit(units)
                     
             else:
                 factor = int(layer)
