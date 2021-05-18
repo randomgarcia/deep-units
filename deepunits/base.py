@@ -8,6 +8,7 @@ from tensorflow.keras.layers import (
     MaxPooling2D,
     GlobalAveragePooling2D,
     Add,
+    UpSampling2D,
 )
 
 from collections import OrderedDict
@@ -209,6 +210,11 @@ class DeepUnit:
                         kwdef = [2,2]
                         fixkw = {}
                         ltype = AveragePooling2D 
+                    elif layer_type.lower()=='u':
+                        kwlist = ['size','interpolation']
+                        kwdef = [2,'nearest']
+                        fixkw = {}
+                        ltype = UpSampling2D
                     elif layer_type.lower()=='g':
                         ltype = GlobalAveragePooling2D
                         kwlist = []

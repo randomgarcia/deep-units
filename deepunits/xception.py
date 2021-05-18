@@ -25,6 +25,7 @@ class XceptionUnit(DeepUnit):
         maxpool_at_end=True,
         postproc=None,
         force_residual_conv=False,
+        preproc=None,
     ):
         units = OrderedDict()
         
@@ -63,7 +64,7 @@ class XceptionUnit(DeepUnit):
             postproc = 'm2'
         
             
-        super().__init__(units,postproc=postproc)
+        super().__init__(units,preproc=preproc,postproc=postproc)
     
     @classmethod
     def create(
@@ -91,7 +92,7 @@ class XceptionUnit(DeepUnit):
             maxpool_at_end=maxpool_at_end,
             postproc=postproc,
         )
-        
+
 
 class XceptionResidualUnit(ResidualUnit):
     """
@@ -109,6 +110,7 @@ class XceptionResidualUnit(ResidualUnit):
         activation_at_start=True,
         activation_at_end=False,
         maxpool_at_end=True,
+        preproc=None,
         postproc=None,
         force_residual_conv=False,
     ):
@@ -121,26 +123,44 @@ class XceptionResidualUnit(ResidualUnit):
             activation_at_start=activation_at_start,
             activation_at_end=activation_at_end,
             maxpool_at_end=maxpool_at_end,
+            preproc=preproc,
             postproc=postproc,
         )
-        
-        if maxpool_at_end or postproc or force_residual_conv:
-            if maxpool_at_end or postproc:
-                strides = (2,2)
-            else:
-                strides = (1,1)
-            
+
+        if (isinstance(preproc,str)) and (preproc.lower().startswith('u')):
             resunits = OrderedDict()
             resunits['feature'] = Conv2D(
                 features[-1]*depth_multiplier,
                 (1,1),
-                strides=strides,
+                strides=(1,1),
                 padding='same',
                 use_bias=not batch_norm,
             )
             if batch_norm:
                 resunits['batch_norm'] = BatchNormalization(axis=-1)
+            
+            # resunits['upscale'] = UpSampling2D((2,2))
+            resunits['upscale'] = self.validate_layer(preproc)
             residual_branch = DeepUnit(resunits)
+
+        elif maxpool_at_end or postproc or force_residual_conv:
+            
+                if maxpool_at_end or postproc:
+                    strides = (2,2)
+                else:
+                    strides = (1,1)
+                
+                resunits = OrderedDict()
+                resunits['feature'] = Conv2D(
+                    features[-1]*depth_multiplier,
+                    (1,1),
+                    strides=strides,
+                    padding='same',
+                    use_bias=not batch_norm,
+                )
+                if batch_norm:
+                    resunits['batch_norm'] = BatchNormalization(axis=-1)
+                residual_branch = DeepUnit(resunits)
         else:
             residual_branch = None
         
@@ -229,6 +249,58 @@ def create_xception_units(
             activation_at_end=activation_at_end,
             maxpool_at_end=do_maxpool,
             force_residual_conv=res_conv,
+        )
+    
+    return DeepUnit(units)
+    
+def upscaling_xception_units(
+    features,
+    repeats=2,
+    residual=True,
+    num_units=4,
+    depth_multiplier=1,
+    activation='relu',
+    batch_norm=True,
+    activation_at_start=True,
+    activation_at_end=False,
+    force_residual_conv=False,
+):
+    """
+    This creates one scale of an xception model (ie, no intermediate downscaling)
+    
+    Usually it will be either num_units=1 and maxpool_at_end=True
+    or num_units>0 and maxpool_at_end=False
+    """
+    
+    units = OrderedDict()
+    
+    if residual:
+        constructor = XceptionResidualUnit
+    else:
+        constructor = XceptionUnit
+        
+    for ii in range(num_units):
+        if (ii==0):
+            preproc='u2'
+        else:
+            preproc = None
+
+        # think we can work out whether a res_conv is needed based on whether maxpooling is performed
+        if (ii==0):
+            res_conv = True
+        else:
+            res_conv = False
+
+        units[f'Xc{ii}'] = constructor(
+            repeats*[features],
+            depth_multiplier=1,
+            activation=activation,
+            batch_norm=batch_norm,
+            activation_at_start=activation_at_start,
+            activation_at_end=activation_at_end,
+            maxpool_at_end=False,
+            force_residual_conv=res_conv,
+            preproc=preproc,
         )
     
     return DeepUnit(units)
