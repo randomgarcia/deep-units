@@ -1,5 +1,6 @@
 import tensorflow as tf
 import numpy as np
+from copy import deepcopy
 
 from tensorflow.keras.layers import (
     Dense,
@@ -118,20 +119,27 @@ class TensorDict:
 
 
 
-
+# comment out the preproc and postproc stuff, this could be useful in a wrapper
 class DeepUnit:
-    def __init__(self,units,names=None,preproc=None,postproc=None):
+    def __init__(
+        self,
+        units,
+        names=None,
+        preproc=None,
+        postproc=None,
+        output_features=None,
+    ):
 
         # could use an OrderedDict?
         self.Units = to_ordered_dict(units,names)
 
         self.Tensors = TensorDict()
         
-        self.set_pre_post_proc(preproc,postproc)
+        # self.set_pre_post_proc(preproc,postproc)
     
-    def set_pre_post_proc(self,preproc=None,postproc=None):
-        self.PreProc = self.validate_layer(preproc)
-        self.PostProc = self.validate_layer(postproc)
+    # def set_pre_post_proc(self,preproc=None,postproc=None):
+    #     self.PreProc = self.validate_layer(preproc)
+    #     self.PostProc = self.validate_layer(postproc)
 
 
     def __call__(self,x):
@@ -142,11 +150,11 @@ class DeepUnit:
             for kk in self.Tensors.keys():
                 self.Tensors[kk].set_current_key(x)
         
-        x = self.run_pre_processing(x)
+        # x = self.run_pre_processing(x)
         
         y = self.tf_call(x)
         
-        y = self.run_post_processing(y)
+        # y = self.run_post_processing(y)
         
         return y
 
@@ -159,21 +167,21 @@ class DeepUnit:
 
         return z
     
-    def run_pre_processing(self,x):
-        z = x
-        if self.PreProc is not None:
-            z = self.PreProc(z)
-            self.Tensors['PreProc'] = z
+    # def run_pre_processing(self,x):
+    #     z = x
+    #     if self.PreProc is not None:
+    #         z = self.PreProc(z)
+    #         self.Tensors['PreProc'] = z
         
-        return z
+    #     return z
     
-    def run_post_processing(self,x):
-        z = x
-        if self.PostProc is not None:
-            z = self.PostProc(z)
-            self.Tensors['PostProc'] = z
+    # def run_post_processing(self,x):
+    #     z = x
+    #     if self.PostProc is not None:
+    #         z = self.PostProc(z)
+    #         self.Tensors['PostProc'] = z
         
-        return z
+    #     return z
     
     
     @classmethod
@@ -288,11 +296,76 @@ class DeepUnit:
             return layer
         
 
+class BlockWrapper(DeepUnit):
+    """
+    A wrapper around a basic unit adding maxpooling, residual connection, etc
+    """
+    def __init__(self,unit,initial_maxpool=False,final_maxpool=True,residual=False,residual_feat=None):
+        
+        unitdict = {}
+        unitdict['BaseUnit'] = unit
+        
+        if initial_maxpool:
+            unitdict['InitialOperation'] = validate_layer('m2')
+        else:
+            unitdict['InitialOperation'] = NullUnit()
+        
+        if final_maxpool:
+            unitdict['FinalOperation'] = validate_layer('m2')
+        else:
+            unitdict['FinalOperation'] = NullUnit()
+        
+        self.Residual = residual
+        if residual:
+            stride = 1 
+            if initial_maxpool:
+                stride = stride * 2
+            if final_maxpool:
+                stride = stride * 2 
+            
+            
+            if residual_feat is None:
+                # see if we can get it from the DeepUnit
+                residual_feat = unit.OutputFeatures
+            
+            if (residual_feat is not None):
+                unitdict['ResidualBranch'] = Conv2D(residual_feat,1,strides=stride,padding='same')
+            else:
+                unitdict['ResidualBranch'] = NullUnit()
+                
+            unitdict['Combine'] = Add()
+        
+        super().__init__(unitdict)
+    
+    def tf_call(self,X):
+        Z = self.Units['InitialOperation'](X)
+        self.Tensors['InitialOperation'] = Z 
+        
+        Z = self.Units['BaseUnit'](Z)
+        self.Tensors['BaseUnit'] = Z 
+        
+        Z = self.Units['FinalOperation'](Z)
+        self.Tensors['FinalOperation'] = Z
+        
+        if self.Residual:
+            R = self.Units['ResidualBranch'](X)
+            self.Tensors['ResidualBranch'] = R
+            
+            Z = self.Units['Combine']([Z,R])
+            self.Tensors['Combine'] = Z 
+        
+        return Z 
+        
+            
+        
+        
+        
+
 class NullUnit(DeepUnit):
     def __init__(self):
         super().__init__([])
     
-    def tfcall(self,x):
+    def tf_call(self,x):
         self.Tensors['x'] = x
         
         return x
@@ -346,6 +419,68 @@ class ConvUnit(DeepUnit):
                 names.append('Activation_{0}'.format(ii))
                 units.append(activations[ii])
 
+        super().__init__(units,names,preproc=preproc,postproc=postproc)
+
+
+class BACUnit(DeepUnit):
+    """
+    Batch norm, Activation, Convolution
+    """
+    def __init__(
+        self,
+        features,
+        kernel_sizes=3,
+        strides=1,
+        activations='relu',
+        batch_norm=False,
+        padding='same',
+        preproc=None,
+        postproc=None,
+    ):
+
+        if type(features) not in [list,tuple,np.ndarray]:
+            features = [features]
+
+        features = [int(x) for x in features]
+
+        # make sure that the rest of the parameters are the same size
+        if type(kernel_sizes) not in [list,tuple,np.ndarray]:
+            kernel_sizes = [kernel_sizes]*len(features)
+        if type(strides) not in [list,tuple,np.ndarray]:
+            strides = [strides]*len(features)
+        if type(activations) not in [list,tuple,np.ndarray]:
+            activations = [deepcopy(activations)]*len(features)
+        if type(padding) not in [list,tuple,np.ndarray]:
+            padding = [padding]*len(features)
+
+
+        activations = [
+            Activation(aa) if type(aa) is str else aa
+            for aa in activations
+        ]
+
+        convlayers = [
+            Conv2D(ff,kernel_size=kk,strides=ss,padding=pp)
+            for ff,kk,ss,pp in zip(features,kernel_sizes,strides,padding)
+        ]
+
+
+        names = []
+        units = []
+        for ii in range(len(features)):
+            if batch_norm:
+                names.append('BatchNorm_{0}'.format(ii))
+                units.append(BatchNormalization())
+            
+            if activations[ii] is not None:
+                names.append('Activation_{0}'.format(ii))
+                units.append(activations[ii])
+            
+            names.append('Conv2D_{0}'.format(ii))
+            units.append(convlayers[ii])
+            
+            
+            
         super().__init__(units,names,preproc=preproc,postproc=postproc)
 
 

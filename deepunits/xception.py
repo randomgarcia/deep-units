@@ -64,7 +64,9 @@ class XceptionUnit(DeepUnit):
             postproc = 'm2'
         
             
-        super().__init__(units,preproc=preproc,postproc=postproc)
+        super().__init__(units)
+        
+        self.OutputFeatures = features[-1]
     
     @classmethod
     def create(
