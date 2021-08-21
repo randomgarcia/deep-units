@@ -1,6 +1,2 @@
-from .base import (
-    DeepUnit,
-    ConvUnit,
-)
-
 from .training import *
+from .base import *

@@ -14,6 +14,14 @@ from tensorflow.keras.layers import (
 
 from collections import OrderedDict
 
+__all__ = [
+    'DeepUnit',
+    'ConvUnit',
+    'FCUnit',
+    'NullUnit',
+    'TensorDict',
+]
+
 def to_ordered_dict(units,names=None):
     """
     Convert the list of units to an ordereddict
@@ -211,12 +219,12 @@ class DeepUnit:
                     elif layer_type.lower()=='m':
                         kwlist = ['pool_size','strides']
                         kwdef = [2,2]
-                        fixkw = {}
+                        fixkw = {'padding':'same'}
                         ltype = MaxPooling2D
                     elif layer_type.lower()=='a':
                         kwlist = ['pool_size','strides']
                         kwdef = [2,2]
-                        fixkw = {}
+                        fixkw = {'padding':'same'}
                         ltype = AveragePooling2D 
                     elif layer_type.lower()=='u':
                         kwlist = ['size','interpolation']
@@ -246,7 +254,7 @@ class DeepUnit:
                 if factor<=0:
                     layer = GlobalAveragePooling2D()
                 else:
-                    layer = MaxPooling2D(factor)
+                    layer = MaxPooling2D(factor,padding='same')
                 
         return layer
     
