@@ -20,6 +20,7 @@ __all__ = [
     'FCUnit',
     'NullUnit',
     'TensorDict',
+    'BlockWrapper',
 ]
 
 def to_ordered_dict(units,names=None):
@@ -310,16 +311,16 @@ class BlockWrapper(DeepUnit):
     """
     def __init__(self,unit,initial_maxpool=False,final_maxpool=True,residual=False,residual_feat=None):
         
-        unitdict = {}
+        unitdict = OrderedDict()
         unitdict['BaseUnit'] = unit
         
         if initial_maxpool:
-            unitdict['InitialOperation'] = validate_layer('m2')
+            unitdict['InitialOperation'] = self.validate_layer('m2')
         else:
             unitdict['InitialOperation'] = NullUnit()
         
         if final_maxpool:
-            unitdict['FinalOperation'] = validate_layer('m2')
+            unitdict['FinalOperation'] = self.validate_layer('m2')
         else:
             unitdict['FinalOperation'] = NullUnit()
         

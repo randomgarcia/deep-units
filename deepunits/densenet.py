@@ -10,6 +10,11 @@ from tensorflow.keras.layers import (
     Concatenate,
 )
 
+__all__ = [
+    'DenseNetUnit',
+    'StandardDenseNetUnit',
+]
+
 class DenseNetUnit(DeepUnit):
     """
     Class containing the basic dense net unit architecture, ie concatenating after each
