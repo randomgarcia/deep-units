@@ -76,8 +76,10 @@ class CosineOutput(ModelOutput):
         
 
 class TrainingRun:
-    def __init__(self,model):
+    def __init__(self,model,strategy=None):
         self.Model = model
+        
+        self.Strategy = strategy
         
         self.Callbacks = []
         self.OutputFolder = None
@@ -147,14 +149,71 @@ class TrainingRun:
         
         return self
         
-    def add_checkpoint(self,period=10):
-        pass
+    def add_checkpoint(self,format_string='model_checkpoint{epoch}.h5',period=10,**kwargs):
+        
+        filepath = os.path.join(self.OutputFolder,format_string)
+        cbk = tf.keras.callbacks.ModelCheckpoint(
+            filepath, 
+            monitor='val_loss', 
+            verbose=1, 
+            save_best_only=False,
+            save_weights_only=False, 
+            mode='auto', 
+            save_freq='epoch',
+            period=period,
+            options=None, **kwargs
+        )
+        
+        self.Callbacks.append(cbk)
+        
+        return self
     
-    def add_logger(self,name='Log.csv'):
-        pass
+    def add_logger(self,name='Log.csv',append=True,**kwargs):
+        filepath = os.path.join(self.OutputFolder,name)
+        
+        cbk = tf.keras.callbacks.CSVLogger(
+            filepath,append=append,**kwargs
+        )
+        
+        self.Callbacks.append(cbk)
+        
+        return self
     
-    def run_training(self,epochs=10,generator_length=None):
-        pass
+    
+    def run_generator(self,gen,vgen=None,epochs=10,epoch_length=200, learning_rate=None,**kwargs):
+        
+        if learning_rate is not None:
+            self.compile(learning_rate)
+        
+        fit_kw = {'epochs':epochs, 'steps_per_epoch':epoch_length, 'verbose':1, **kwargs}
+        if vgen is not None:
+            fit_kw = {**fit_kw, 'validation_data':vgen, 'validation_steps':epoch_length//20}
+        
+        h = self.Model.fit(
+            gen, **fit_kw
+        )
+        
+        return h
+    
+    def run_numpy(self,x,y,vx=None,vy=None,epochs=10, learning_rate=None,**kwargs):
+        
+        """
+        Here might want to shuffle or augment between epochs?  Although why not just
+        do a generator in that case
+        """
+        
+        if learning_rate is not None:
+            self.compile(learning_rate)
+        
+        fit_kw = {'epochs':epochs, 'verbose':1, **kwargs}
+        if vx is not None:
+            fit_kw = {**fit_kw, 'validation_data':(vx,vy)}
+        
+        h = self.Model.fit(
+            gen, **fit_kw
+        )
+        
+        return h
     
     
         
